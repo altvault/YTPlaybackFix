@@ -38,14 +38,16 @@ static __weak YTLocalPlaybackController *sharedPlaybackController = nil;
         
         NSLog(@"[YTPlaybackFix] Errore 14: Iniezione evento di retry sicura...");
         
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            // Usiamo il responder salvato dal nostro hook, senza cercare finestre o keyWindow
             if (sharedPlaybackController) {
                 id responder = [sharedPlaybackController parentResponder];
                 if (responder) {
+                    // Creiamo l'evento esattamente come fa YTUHD
                     id event = [%c(YTPlayerTapToRetryResponderEvent) eventWithFirstResponder:responder];
                     if (event) {
                         [event send];
-                        NSLog(@"[YTPlaybackFix] Evento inviato istantaneamente!");
+                        NSLog(@"[YTPlaybackFix] Evento di Retry inviato correttamente!");
                     }
                 }
             }
