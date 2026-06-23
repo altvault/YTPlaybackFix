@@ -1,0 +1,9 @@
+Package: com.yourname.ytplaybackfix
+Name: YTPlaybackFix
+Depends: mobilesubstrate
+Version: 0.0.1
+Architecture: iphoneos-arm
+Description: Fixes YouTube playback "something went wrong" errors (Code 14) automatically.
+Maintainer: Developer
+Author: Developer
+Section: Tweaks
