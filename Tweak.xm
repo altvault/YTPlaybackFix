@@ -1,16 +1,16 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-@interface MLHAMQueuePlayer : NSObject
-@property(nonatomic, weak) id delegate;
-@end
-
 @interface YTSingleVideoController : NSObject
-@property(nonatomic, weak) id delegate;
+@property (nonatomic, weak, readonly) id delegate;
 @end
 
 @interface YTLocalPlaybackController : NSObject
 - (id)parentResponder;
+@end
+
+@interface MLHAMQueuePlayer : NSObject
+@property (nonatomic, weak, readonly) id delegate;
 @end
 
 @interface YTPlayerTapToRetryResponderEvent : NSObject
@@ -18,49 +18,39 @@
 - (void)send;
 @end
 
-static NSTimer *gTimer = nil;
-static __weak MLHAMQueuePlayer *gPlayer = nil;
-
 %hook MLHAMQueuePlayer
 
-- (void)internalSetRate:(float)rate
+- (void)internalSetRate
 {
     %orig;
 
-    gPlayer = self;
+    NSLog(@"[YTPlaybackFix] internalSetRate");
+}
 
-    if (rate > 0.0 && !gTimer)
-    {
-        gTimer =
-        [NSTimer scheduledTimerWithTimeInterval:25.0
-                                        repeats:YES
-                                          block:^(NSTimer *timer)
-        {
-            if (!gPlayer)
-                return;
+- (void)maybeSwitchToAVPlayer
+{
+    %orig;
 
-            YTSingleVideoController *video =
-                (YTSingleVideoController *)gPlayer.delegate;
+    NSLog(@"[YTPlaybackFix] maybeSwitchToAVPlayer");
 
-            if (!video)
-                return;
+    id video = self.delegate;
 
-            YTLocalPlaybackController *playback =
-                (YTLocalPlaybackController *)video.delegate;
+    if (![video respondsToSelector:@selector(delegate)])
+        return;
 
-            if (!playback)
-                return;
+    id playback = [video delegate];
 
-            id responder = [playback parentResponder];
+    if (![playback respondsToSelector:@selector(parentResponder)])
+        return;
 
-            if (!responder)
-                return;
+    id responder = [playback parentResponder];
 
-            [[objc_getClass("YTPlayerTapToRetryResponderEvent")
-                eventWithFirstResponder:responder]
-                send];
-        }];
-    }
+    if (!responder)
+        return;
+
+    [[objc_getClass("YTPlayerTapToRetryResponderEvent")
+        eventWithFirstResponder:responder]
+        send];
 }
 
 %end
