@@ -27,7 +27,7 @@ static NSTimeInterval gLastRetry = 0;
     {
         NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
 
-        if (now - gLastRetry < 3.0) {
+        if (now - gLastRetry < 1.5) {
             return;
         }
 
@@ -47,35 +47,43 @@ static NSTimeInterval gLastRetry = 0;
             } @catch (...) {}
         }
 
-        id responder = nil;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                       (int64_t)(0.15 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
 
-        if ([self respondsToSelector:@selector(parentResponder)]) {
+            id responder = nil;
+
             @try {
-                responder = [self performSelector:@selector(parentResponder)];
+                if ([self respondsToSelector:@selector(parentResponder)]) {
+                    responder = [self performSelector:@selector(parentResponder)];
+                }
             } @catch (...) {}
-        }
 
-        if (responder) {
-            id event =
-                [%c(YTPlayerTapToRetryResponderEvent)
-                    eventWithFirstResponder:responder];
+            if (responder) {
+                id event =
+                    [%c(YTPlayerTapToRetryResponderEvent)
+                        eventWithFirstResponder:responder];
 
-            if (event) {
-                [event send];
+                if (event) {
+                    [event send];
+                }
             }
-        }
 
-        if (pvc) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                           (int64_t)(1.0 * NSEC_PER_SEC)),
-                           dispatch_get_main_queue(), ^{
+            if (pvc) {
 
-                @try {
-                    [pvc seekToTime:oldTime];
-                } @catch (...) {}
+                CGFloat targetTime = oldTime + 0.75;
 
-            });
-        }
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                               (int64_t)(0.35 * NSEC_PER_SEC)),
+                               dispatch_get_main_queue(), ^{
+
+                    @try {
+                        [pvc seekToTime:targetTime];
+                    } @catch (...) {}
+
+                });
+            }
+        });
 
         return;
     }
