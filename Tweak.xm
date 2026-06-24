@@ -24,11 +24,19 @@ static CGFloat gLatestTime = 0.0;
 {
     CGFloat t = %orig;
 
-    if (t > gLatestTime) {
-        gLatestTime = t;
-    }
+    // Aggiorna SEMPRE il tempo reale
+    gLatestTime = t;
 
     return t;
+}
+
+- (void)seekToTime:(CGFloat)time
+{
+    // Aggiorna immediatamente quando l'utente
+    // va avanti o indietro nella timeline
+    gLatestTime = time;
+
+    %orig;
 }
 
 %end
@@ -55,7 +63,6 @@ static CGFloat gLatestTime = 0.0;
             pvc = [self parentViewController];
         } @catch (...) {}
 
-        // usa il timestamp aggiornato continuamente
         CGFloat savedTime = gLatestTime;
 
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
@@ -101,3 +108,9 @@ static CGFloat gLatestTime = 0.0;
 }
 
 %end
+
+%ctor
+{
+    gLatestTime = 0.0;
+    gLastRetry = 0;
+}
