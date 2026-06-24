@@ -3,99 +3,104 @@
 
 @interface MLPlayerReloadContext : NSObject
 
-* (instancetype)initWithStartPlayback:(BOOL)startPlayback
-  refreshStreamingData:(BOOL)refreshStreamingData;
-  @end
+- (instancetype)initWithStartPlayback:(BOOL)startPlayback
+                refreshStreamingData:(BOOL)refreshStreamingData;
+
+@end
 
 @interface YTSingleVideoController : NSObject
 
-* (void)reloadPlayerWithContext:(MLPlayerReloadContext *)context;
-  @end
+- (void)reloadPlayerWithContext:(MLPlayerReloadContext *)context;
+
+@end
 
 @interface YTPlayerViewController : UIViewController
 
-* (YTSingleVideoController *)activeVideo;
-* (CGFloat)currentVideoMediaTime;
-* (void)seekToTime:(CGFloat)time;
-  @end
+- (YTSingleVideoController *)activeVideo;
+- (CGFloat)currentVideoMediaTime;
+- (void)seekToTime:(CGFloat)time;
+
+@end
 
 static __weak YTPlayerViewController *gCurrentPlayerVC = nil;
 static NSTimer *gReloadTimer = nil;
 
 static void PerformAutoReload(void)
 {
-YTPlayerViewController *pvc = gCurrentPlayerVC;
+    YTPlayerViewController *pvc = gCurrentPlayerVC;
 
-```
-if (!pvc)
-    return;
+    if (!pvc)
+        return;
 
-YTSingleVideoController *video = [pvc activeVideo];
+    YTSingleVideoController *video = [pvc activeVideo];
 
-if (!video)
-    return;
+    if (!video)
+        return;
 
-CGFloat oldTime = [pvc currentVideoMediaTime];
+    CGFloat oldTime = [pvc currentVideoMediaTime];
 
-MLPlayerReloadContext *ctx =
-    [[%c(MLPlayerReloadContext) alloc]
-        initWithStartPlayback:YES
-         refreshStreamingData:YES];
+    MLPlayerReloadContext *ctx =
+        [[%c(MLPlayerReloadContext) alloc]
+            initWithStartPlayback:YES
+             refreshStreamingData:YES];
 
-if (!ctx)
-    return;
+    if (!ctx)
+        return;
 
-[video reloadPlayerWithContext:ctx];
+    [video reloadPlayerWithContext:ctx];
 
-dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-               (int64_t)(1.0 * NSEC_PER_SEC)),
-               dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                 (int64_t)(1.0 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
 
-    if (gCurrentPlayerVC) {
-        [gCurrentPlayerVC seekToTime:oldTime];
-    }
+        if (gCurrentPlayerVC) {
+            [gCurrentPlayerVC seekToTime:oldTime];
+        }
 
-});
-```
-
+    });
 }
 
 %hook YTPlayerViewController
 
-* (YTSingleVideoController *)activeVideo
-  {
-  gCurrentPlayerVC = self;
-  return %orig;
-  }
+- (YTSingleVideoController *)activeVideo
+{
+    gCurrentPlayerVC = self;
+    return %orig;
+}
 
-* (void)viewDidAppear:(BOOL)animated
-  {
-  %orig;
+- (void)viewDidAppear:(BOOL)animated
+{
+    %orig;
 
-  gCurrentPlayerVC = self;
+    gCurrentPlayerVC = self;
 
-  if (gReloadTimer) {
-  [gReloadTimer invalidate];
-  gReloadTimer = nil;
-  }
+    if (gReloadTimer) {
+        [gReloadTimer invalidate];
+        gReloadTimer = nil;
+    }
 
-  gReloadTimer =
-  [NSTimer scheduledTimerWithTimeInterval:25.0
-  repeats:YES
-  block:^(NSTimer *timer)
-  {
-  PerformAutoReload();
-  }];
-  }
+    gReloadTimer =
+        [NSTimer scheduledTimerWithTimeInterval:25.0
+                                        repeats:YES
+                                          block:^(NSTimer *timer)
+    {
+        PerformAutoReload();
+    }];
+}
 
-* (void)viewDidDisappear:(BOOL)animated
-  {
-  %orig;
+- (void)viewDidDisappear:(BOOL)animated
+{
+    %orig;
 
-  if (gReloadTimer) {
-  [gReloadTimer invalidate];
-  gReloadTimer = nil;
-  }
-  }
+    if (gReloadTimer) {
+        [gReloadTimer invalidate];
+        gReloadTimer = nil;
+    }
+}
 
 %end
+
+%ctor
+{
+    NSLog(@"[YTPlaybackFix] Loaded");
+}
