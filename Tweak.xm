@@ -56,7 +56,7 @@ static __weak MLHAMQueuePlayer *gPlayer = nil;
             if (!responder)
                 return;
 
-            [[[objc_getClass("YTPlayerTapToRetryResponderEvent")
+            [[objc_getClass("YTPlayerTapToRetryResponderEvent")
                 eventWithFirstResponder:responder]
                 send];
         }];
