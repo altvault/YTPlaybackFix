@@ -1,106 +1,66 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-@interface MLPlayerReloadContext : NSObject
-
-- (instancetype)initWithStartPlayback:(BOOL)startPlayback
-                refreshStreamingData:(BOOL)refreshStreamingData;
-
+@interface MLHAMQueuePlayer : NSObject
+@property(nonatomic, weak) id delegate;
 @end
 
 @interface YTSingleVideoController : NSObject
-
-- (void)reloadPlayerWithContext:(MLPlayerReloadContext *)context;
-
+@property(nonatomic, weak) id delegate;
 @end
 
-@interface YTPlayerViewController : UIViewController
-
-- (YTSingleVideoController *)activeVideo;
-- (CGFloat)currentVideoMediaTime;
-- (void)seekToTime:(CGFloat)time;
-
+@interface YTLocalPlaybackController : NSObject
+- (id)parentResponder;
 @end
 
-static __weak YTPlayerViewController *gCurrentPlayerVC = nil;
-static NSTimer *gReloadTimer = nil;
+@interface YTPlayerTapToRetryResponderEvent : NSObject
++ (instancetype)eventWithFirstResponder:(id)firstResponder;
+- (void)send;
+@end
 
-static void PerformAutoReload(void)
-{
-    YTPlayerViewController *pvc = gCurrentPlayerVC;
+static NSTimer *gTimer = nil;
+static __weak MLHAMQueuePlayer *gPlayer = nil;
 
-    if (!pvc)
-        return;
+%hook MLHAMQueuePlayer
 
-    YTSingleVideoController *video = [pvc activeVideo];
-
-    if (!video)
-        return;
-
-    CGFloat oldTime = [pvc currentVideoMediaTime];
-
-    MLPlayerReloadContext *ctx =
-        [[%c(MLPlayerReloadContext) alloc]
-            initWithStartPlayback:YES
-             refreshStreamingData:YES];
-
-    if (!ctx)
-        return;
-
-    [video reloadPlayerWithContext:ctx];
-
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                                 (int64_t)(1.0 * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(), ^{
-
-        if (gCurrentPlayerVC) {
-            [gCurrentPlayerVC seekToTime:oldTime];
-        }
-
-    });
-}
-
-%hook YTPlayerViewController
-
-- (YTSingleVideoController *)activeVideo
-{
-    gCurrentPlayerVC = self;
-    return %orig;
-}
-
-- (void)viewDidAppear:(BOOL)animated
+- (void)internalSetRate:(float)rate
 {
     %orig;
 
-    gCurrentPlayerVC = self;
+    gPlayer = self;
 
-    if (gReloadTimer) {
-        [gReloadTimer invalidate];
-        gReloadTimer = nil;
-    }
-
-    gReloadTimer =
+    if (rate > 0.0 && !gTimer)
+    {
+        gTimer =
         [NSTimer scheduledTimerWithTimeInterval:25.0
                                         repeats:YES
                                           block:^(NSTimer *timer)
-    {
-        PerformAutoReload();
-    }];
-}
+        {
+            if (!gPlayer)
+                return;
 
-- (void)viewDidDisappear:(BOOL)animated
-{
-    %orig;
+            YTSingleVideoController *video =
+                (YTSingleVideoController *)gPlayer.delegate;
 
-    if (gReloadTimer) {
-        [gReloadTimer invalidate];
-        gReloadTimer = nil;
+            if (!video)
+                return;
+
+            YTLocalPlaybackController *playback =
+                (YTLocalPlaybackController *)video.delegate;
+
+            if (!playback)
+                return;
+
+            id responder = [playback parentResponder];
+
+            if (!responder)
+                return;
+
+            [[[objc_getClass("YTPlayerTapToRetryResponderEvent")
+                eventWithFirstResponder:responder]
+                send];
+        }];
     }
 }
 
 %end
-
-%ctor
-{
-    NSLog(@"[YTPlaybackFix] Loaded");
-}
